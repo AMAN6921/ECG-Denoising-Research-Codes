@@ -184,20 +184,7 @@ seaborn>=0.11.0        # Statistical plotting
 - **Morphology**: >99.98% correlation with original signal
 - **Robustness**: 100% success rate across all tested records
 
-## 📄 Citation
-
-If you use this algorithm in your research, please cite:
-
-```bibtex
-@software{adaptive_vmd_ecg_denoising_2024,
-  title={Adaptive VMD-Based ECG Denoising: Multi-Dataset Validation Framework},
-  author={Advanced Signal Processing Research},
-  year={2024},
-  note={Achieving 50+ dB SNR across MIT-BIH, PTB-XL, and INCART datasets},
-  url={https://github.com/your-repo/ecg-denoising}
-}
 ```
-
 ## 📞 Support
 
 For questions, issues, or collaboration opportunities:
