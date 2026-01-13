@@ -773,7 +773,7 @@ class AdaptiveVMDECGDenoiserValidator:
         Returns:
         --------
         dict
-            Dictionary containing performance metrics
+            Dictionary containing performance metrics including SNR, RMSE, and PDR
         """
         try:
             # Ensure all signals have same length
@@ -788,6 +788,21 @@ class AdaptiveVMDECGDenoiserValidator:
             noise_power = np.mean(residual_noise**2)
             output_snr_db = 10 * np.log10(signal_power / (noise_power + 1e-18)) if noise_power > 0 else 100.0
             
+            # Input SNR calculation (clean vs noisy)
+            input_noise = noisy_signal - clean_signal
+            clean_signal_power = np.mean(clean_signal**2)
+            input_noise_power = np.mean(input_noise**2)
+            input_snr_db = 10 * np.log10(clean_signal_power / (input_noise_power + 1e-18)) if input_noise_power > 0 else 100.0
+            
+            # RMSE calculation (Root Mean Square Error)
+            rmse = np.sqrt(np.mean((clean_signal - denoised_signal)**2))
+            
+            # PDR calculation (Percent Distortion Reduction)
+            # PDR measures the percentage reduction in distortion after denoising
+            input_distortion = np.mean((clean_signal - noisy_signal)**2)
+            output_distortion = np.mean((clean_signal - denoised_signal)**2)
+            pdr = ((input_distortion - output_distortion) / (input_distortion + 1e-18)) * 100 if input_distortion > 0 else 100.0
+            
             # Signal correlation
             correlation_coefficient = np.corrcoef(clean_signal, denoised_signal)[0, 1] if (
                 np.std(clean_signal) > 0 and np.std(denoised_signal) > 0
@@ -798,7 +813,10 @@ class AdaptiveVMDECGDenoiserValidator:
             noise_removed_percentage = (1 - 1/noise_reduction_ratio) * 100
             
             return {
+                'input_snr_db': input_snr_db,
                 'output_snr_db': output_snr_db,
+                'rmse': rmse,
+                'pdr': pdr,
                 'correlation_coefficient': correlation_coefficient,
                 'noise_removed_percentage': noise_removed_percentage,
                 'noise_reduction_ratio': noise_reduction_ratio
@@ -806,7 +824,10 @@ class AdaptiveVMDECGDenoiserValidator:
             
         except Exception:
             return {
+                'input_snr_db': 0.0,
                 'output_snr_db': 0.0,
+                'rmse': 0.0,
+                'pdr': 0.0,
                 'correlation_coefficient': 0.0,
                 'noise_removed_percentage': 0.0,
                 'noise_reduction_ratio': 1.0
@@ -874,8 +895,10 @@ class AdaptiveVMDECGDenoiserValidator:
                 'record_id': record_id or f'synthetic_{record_index+1}',
                 'description': description,
                 'sampling_rate': sampling_rate,
-                'input_snr_db': input_snr_db,
+                'input_snr_db': performance_metrics['input_snr_db'],
                 'output_snr_db': performance_metrics['output_snr_db'],
+                'rmse': performance_metrics['rmse'],
+                'pdr': performance_metrics['pdr'],
                 'correlation_coefficient': performance_metrics['correlation_coefficient'],
                 'noise_removed_percentage': performance_metrics['noise_removed_percentage'],
                 'target_achievement_percentage': (performance_metrics['output_snr_db'] / self.target_snr_db) * 100
@@ -884,8 +907,10 @@ class AdaptiveVMDECGDenoiserValidator:
             
             # Display validation results
             print(f"📈 ADAPTIVE VMD PERFORMANCE RESULTS:")
-            print(f"   Input SNR:           {input_snr_db} dB")
+            print(f"   Input SNR:           {performance_metrics['input_snr_db']:.2f} dB")
             print(f"   Output SNR:          {performance_metrics['output_snr_db']:.2f} dB")
+            print(f"   RMSE:                {performance_metrics['rmse']:.6f}")
+            print(f"   PDR:                 {performance_metrics['pdr']:.2f}%")
             print(f"   Signal Correlation:  {performance_metrics['correlation_coefficient']:.4f}")
             print(f"   Noise Removed:       {performance_metrics['noise_removed_percentage']:.2f}%")
             print(f"   Target Achievement:  {validation_result['target_achievement_percentage']:.1f}%")
@@ -914,14 +939,20 @@ class AdaptiveVMDECGDenoiserValidator:
         print(f"{'='*80}")
         
         # Extract performance metrics
+        input_snrs = [r['input_snr_db'] for r in results]
         output_snrs = [r['output_snr_db'] for r in results]
+        rmse_values = [r['rmse'] for r in results]
+        pdr_values = [r['pdr'] for r in results]
         achievements = [r['target_achievement_percentage'] for r in results]
         correlations = [r['correlation_coefficient'] for r in results]
         noise_removed = [r['noise_removed_percentage'] for r in results]
         
         # Statistical analysis
         print(f"Records Validated:       {len(results)}")
+        print(f"Average Input SNR:       {np.mean(input_snrs):.2f} ± {np.std(input_snrs):.2f} dB")
         print(f"Average Output SNR:      {np.mean(output_snrs):.2f} ± {np.std(output_snrs):.2f} dB")
+        print(f"Average RMSE:            {np.mean(rmse_values):.6f} ± {np.std(rmse_values):.6f}")
+        print(f"Average PDR:             {np.mean(pdr_values):.2f} ± {np.std(pdr_values):.2f}%")
         print(f"Maximum Performance:     {np.max(output_snrs):.2f} dB")
         print(f"Minimum Performance:     {np.min(output_snrs):.2f} dB")
         print(f"Average Achievement:     {np.mean(achievements):.1f}%")
@@ -995,28 +1026,41 @@ class AdaptiveVMDECGDenoiserValidator:
         print("📊 PERFORMANCE SUMMARY BY DATASET:")
         print("-" * 60)
         
+        all_input_snrs = []
         all_output_snrs = []
+        all_rmse_values = []
+        all_pdr_values = []
         all_achievements = []
         all_correlations = []
         
         for dataset_name, dataset_results in dataset_groups.items():
+            input_snrs = [r['input_snr_db'] for r in dataset_results]
             output_snrs = [r['output_snr_db'] for r in dataset_results]
+            rmse_values = [r['rmse'] for r in dataset_results]
+            pdr_values = [r['pdr'] for r in dataset_results]
             achievements = [r['target_achievement_percentage'] for r in dataset_results]
             correlations = [r['correlation_coefficient'] for r in dataset_results]
             
+            all_input_snrs.extend(input_snrs)
             all_output_snrs.extend(output_snrs)
+            all_rmse_values.extend(rmse_values)
+            all_pdr_values.extend(pdr_values)
             all_achievements.extend(achievements)
             all_correlations.extend(correlations)
             
             success_rate = sum(1 for snr in output_snrs if snr >= 50.0 * 0.998) / len(output_snrs) * 100
             
             print(f"🔬 {dataset_name:18}: {np.mean(output_snrs):6.2f} ± {np.std(output_snrs):4.2f} dB | "
+                  f"RMSE: {np.mean(rmse_values):.4f} | PDR: {np.mean(pdr_values):5.1f}% | "
                   f"{len(dataset_results)} records | {success_rate:5.1f}% success")
         
         print(f"\n🏆 OVERALL VALIDATION PERFORMANCE:")
         print("-" * 60)
         print(f"Total Records Validated:  {len(self.validation_results)}")
-        print(f"Overall Average SNR:      {np.mean(all_output_snrs):.2f} ± {np.std(all_output_snrs):.2f} dB")
+        print(f"Overall Average Input SNR: {np.mean(all_input_snrs):.2f} ± {np.std(all_input_snrs):.2f} dB")
+        print(f"Overall Average Output SNR: {np.mean(all_output_snrs):.2f} ± {np.std(all_output_snrs):.2f} dB")
+        print(f"Overall Average RMSE:     {np.mean(all_rmse_values):.6f} ± {np.std(all_rmse_values):.6f}")
+        print(f"Overall Average PDR:      {np.mean(all_pdr_values):.2f} ± {np.std(all_pdr_values):.2f}%")
         print(f"Maximum Performance:      {np.max(all_output_snrs):.2f} dB")
         print(f"Minimum Performance:      {np.min(all_output_snrs):.2f} dB")
         print(f"Overall Achievement:      {np.mean(all_achievements):.1f}%")
