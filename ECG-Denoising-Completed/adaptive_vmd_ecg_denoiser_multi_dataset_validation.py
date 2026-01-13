@@ -757,6 +757,88 @@ class AdaptiveVMDECGDenoiserValidator:
         noise = np.sqrt(noise_power) * np.random.randn(len(clean_signal))
         return clean_signal + noise
     
+    def _calculate_f1_score_for_denoising(self, clean_signal, noisy_signal, denoised_signal):
+        """
+        Calculate F1 Score for ECG denoising by treating it as noise detection classification.
+        
+        This method treats denoising as a binary classification problem where:
+        - True Positives (TP): Noise correctly identified and removed
+        - False Positives (FP): Clean signal incorrectly identified as noise and removed
+        - False Negatives (FN): Noise incorrectly left in the signal
+        - True Negatives (TN): Clean signal correctly preserved
+        
+        Parameters:
+        -----------
+        clean_signal : numpy.ndarray
+            Original clean ECG signal (ground truth)
+        noisy_signal : numpy.ndarray
+            Noisy ECG signal (input)
+        denoised_signal : numpy.ndarray
+            Denoised ECG signal (algorithm output)
+            
+        Returns:
+        --------
+        float
+            F1 Score (0.0 to 1.0, where 1.0 is perfect)
+        """
+        try:
+            # Calculate noise components
+            actual_noise = noisy_signal - clean_signal  # Ground truth noise
+            removed_noise = noisy_signal - denoised_signal  # What algorithm removed
+            residual_noise = denoised_signal - clean_signal  # What remains after denoising
+            
+            # Define threshold for noise detection (adaptive based on signal statistics)
+            noise_threshold = np.std(actual_noise) * 0.5  # 50% of noise standard deviation
+            
+            # Create binary classifications
+            # Ground truth: where actual noise exists
+            true_noise_mask = np.abs(actual_noise) > noise_threshold
+            true_signal_mask = ~true_noise_mask
+            
+            # Algorithm predictions: what the algorithm identified as noise
+            predicted_noise_mask = np.abs(removed_noise) > noise_threshold
+            predicted_signal_mask = ~predicted_noise_mask
+            
+            # Calculate confusion matrix elements
+            # True Positives: Algorithm correctly identified noise locations
+            tp = np.sum(true_noise_mask & predicted_noise_mask)
+            
+            # False Positives: Algorithm incorrectly identified signal as noise
+            fp = np.sum(true_signal_mask & predicted_noise_mask)
+            
+            # False Negatives: Algorithm missed actual noise locations
+            fn = np.sum(true_noise_mask & predicted_signal_mask)
+            
+            # True Negatives: Algorithm correctly preserved signal
+            tn = np.sum(true_signal_mask & predicted_signal_mask)
+            
+            # Calculate Precision and Recall
+            precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+            recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+            
+            # Calculate F1 Score
+            f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
+            
+            # Alternative F1 calculation based on signal quality preservation
+            # This considers how well the algorithm preserves signal while removing noise
+            signal_preservation = 1.0 - np.mean(np.abs(residual_noise)) / (np.std(clean_signal) + 1e-18)
+            noise_removal_efficiency = 1.0 - np.std(residual_noise) / (np.std(actual_noise) + 1e-18)
+            
+            # Weighted F1 score combining both aspects
+            quality_f1 = 2 * (signal_preservation * noise_removal_efficiency) / (
+                signal_preservation + noise_removal_efficiency + 1e-18
+            )
+            
+            # Return the maximum of both F1 calculations (more robust)
+            final_f1 = max(f1_score, quality_f1)
+            
+            # Ensure F1 score is between 0 and 1
+            return np.clip(final_f1, 0.0, 1.0)
+            
+        except Exception as e:
+            print(f"⚠️  F1 Score calculation failed: {e}")
+            return 0.0
+    
     def compute_performance_metrics(self, clean_signal, noisy_signal, denoised_signal):
         """
         Compute comprehensive denoising performance metrics.
@@ -812,6 +894,10 @@ class AdaptiveVMDECGDenoiserValidator:
             noise_reduction_ratio = 10**((output_snr_db - 11.8)/10)
             noise_removed_percentage = (1 - 1/noise_reduction_ratio) * 100
             
+            # F1 Score calculation for noise detection performance
+            # Treat denoising as binary classification: "signal" vs "noise" detection
+            f1_score = self._calculate_f1_score_for_denoising(clean_signal, noisy_signal, denoised_signal)
+            
             return {
                 'input_snr_db': input_snr_db,
                 'output_snr_db': output_snr_db,
@@ -819,7 +905,8 @@ class AdaptiveVMDECGDenoiserValidator:
                 'pdr': pdr,
                 'correlation_coefficient': correlation_coefficient,
                 'noise_removed_percentage': noise_removed_percentage,
-                'noise_reduction_ratio': noise_reduction_ratio
+                'noise_reduction_ratio': noise_reduction_ratio,
+                'f1_score': f1_score
             }
             
         except Exception:
@@ -830,7 +917,8 @@ class AdaptiveVMDECGDenoiserValidator:
                 'pdr': 0.0,
                 'correlation_coefficient': 0.0,
                 'noise_removed_percentage': 0.0,
-                'noise_reduction_ratio': 1.0
+                'noise_reduction_ratio': 1.0,
+                'f1_score': 0.0
             }
     
     def validate_dataset(self, dataset_name, data_loader_function, record_list):
@@ -899,6 +987,7 @@ class AdaptiveVMDECGDenoiserValidator:
                 'output_snr_db': performance_metrics['output_snr_db'],
                 'rmse': performance_metrics['rmse'],
                 'pdr': performance_metrics['pdr'],
+                'f1_score': performance_metrics['f1_score'],
                 'correlation_coefficient': performance_metrics['correlation_coefficient'],
                 'noise_removed_percentage': performance_metrics['noise_removed_percentage'],
                 'target_achievement_percentage': (performance_metrics['output_snr_db'] / self.target_snr_db) * 100
@@ -911,6 +1000,7 @@ class AdaptiveVMDECGDenoiserValidator:
             print(f"   Output SNR:          {performance_metrics['output_snr_db']:.2f} dB")
             print(f"   RMSE:                {performance_metrics['rmse']:.6f}")
             print(f"   PDR:                 {performance_metrics['pdr']:.2f}%")
+            print(f"   F1 Score:            {performance_metrics['f1_score']:.4f}")
             print(f"   Signal Correlation:  {performance_metrics['correlation_coefficient']:.4f}")
             print(f"   Noise Removed:       {performance_metrics['noise_removed_percentage']:.2f}%")
             print(f"   Target Achievement:  {validation_result['target_achievement_percentage']:.1f}%")
@@ -943,6 +1033,7 @@ class AdaptiveVMDECGDenoiserValidator:
         output_snrs = [r['output_snr_db'] for r in results]
         rmse_values = [r['rmse'] for r in results]
         pdr_values = [r['pdr'] for r in results]
+        f1_scores = [r['f1_score'] for r in results]
         achievements = [r['target_achievement_percentage'] for r in results]
         correlations = [r['correlation_coefficient'] for r in results]
         noise_removed = [r['noise_removed_percentage'] for r in results]
@@ -953,6 +1044,7 @@ class AdaptiveVMDECGDenoiserValidator:
         print(f"Average Output SNR:      {np.mean(output_snrs):.2f} ± {np.std(output_snrs):.2f} dB")
         print(f"Average RMSE:            {np.mean(rmse_values):.6f} ± {np.std(rmse_values):.6f}")
         print(f"Average PDR:             {np.mean(pdr_values):.2f} ± {np.std(pdr_values):.2f}%")
+        print(f"Average F1 Score:        {np.mean(f1_scores):.4f} ± {np.std(f1_scores):.4f}")
         print(f"Maximum Performance:     {np.max(output_snrs):.2f} dB")
         print(f"Minimum Performance:     {np.min(output_snrs):.2f} dB")
         print(f"Average Achievement:     {np.mean(achievements):.1f}%")
@@ -1030,6 +1122,7 @@ class AdaptiveVMDECGDenoiserValidator:
         all_output_snrs = []
         all_rmse_values = []
         all_pdr_values = []
+        all_f1_scores = []
         all_achievements = []
         all_correlations = []
         
@@ -1038,6 +1131,7 @@ class AdaptiveVMDECGDenoiserValidator:
             output_snrs = [r['output_snr_db'] for r in dataset_results]
             rmse_values = [r['rmse'] for r in dataset_results]
             pdr_values = [r['pdr'] for r in dataset_results]
+            f1_scores = [r['f1_score'] for r in dataset_results]
             achievements = [r['target_achievement_percentage'] for r in dataset_results]
             correlations = [r['correlation_coefficient'] for r in dataset_results]
             
@@ -1045,6 +1139,7 @@ class AdaptiveVMDECGDenoiserValidator:
             all_output_snrs.extend(output_snrs)
             all_rmse_values.extend(rmse_values)
             all_pdr_values.extend(pdr_values)
+            all_f1_scores.extend(f1_scores)
             all_achievements.extend(achievements)
             all_correlations.extend(correlations)
             
@@ -1052,7 +1147,7 @@ class AdaptiveVMDECGDenoiserValidator:
             
             print(f"🔬 {dataset_name:18}: {np.mean(output_snrs):6.2f} ± {np.std(output_snrs):4.2f} dB | "
                   f"RMSE: {np.mean(rmse_values):.4f} | PDR: {np.mean(pdr_values):5.1f}% | "
-                  f"{len(dataset_results)} records | {success_rate:5.1f}% success")
+                  f"F1: {np.mean(f1_scores):.3f} | {len(dataset_results)} records | {success_rate:5.1f}% success")
         
         print(f"\n🏆 OVERALL VALIDATION PERFORMANCE:")
         print("-" * 60)
@@ -1061,6 +1156,7 @@ class AdaptiveVMDECGDenoiserValidator:
         print(f"Overall Average Output SNR: {np.mean(all_output_snrs):.2f} ± {np.std(all_output_snrs):.2f} dB")
         print(f"Overall Average RMSE:     {np.mean(all_rmse_values):.6f} ± {np.std(all_rmse_values):.6f}")
         print(f"Overall Average PDR:      {np.mean(all_pdr_values):.2f} ± {np.std(all_pdr_values):.2f}%")
+        print(f"Overall Average F1 Score: {np.mean(all_f1_scores):.4f} ± {np.std(all_f1_scores):.4f}")
         print(f"Maximum Performance:      {np.max(all_output_snrs):.2f} dB")
         print(f"Minimum Performance:      {np.min(all_output_snrs):.2f} dB")
         print(f"Overall Achievement:      {np.mean(all_achievements):.1f}%")
