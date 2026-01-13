@@ -9,39 +9,39 @@ A comprehensive validation framework for adaptive Variational Mode Decomposition
 ### ECG Denoising Demonstration
 *Professional medical-grade visualizations showing the complete denoising pipeline*
 
-![MIT-BIH ECG Denoising](ECG-Denoising-Visualizations/Clean_Visualizations/MIT_BIH_Results/MIT-BIH_100_clean.png)
+![MIT-BIH ECG Denoising](ECG-Denoising-Visualizations/Results/MIT_BIH_Results/MIT-BIH_100.png)
 *Figure 1: MIT-BIH Record 100 - Complete ECG denoising pipeline showing Raw Signal → Noisy Signal → Denoised Signal achieving 50.20 dB SNR*
 
 ### Multi-Dataset Performance Analysis
-![Algorithm Performance Summary](ECG-Denoising-Visualizations/Clean_Visualizations/performance_summary_clean.png)
+![Algorithm Performance Summary](ECG-Denoising-Visualizations/Results/performance_summary.png)
 *Figure 2: Comprehensive algorithm validation across MIT-BIH, PTB-XL, and INCART medical datasets showing consistent 50+ dB performance*
 
 ### Dataset-Specific Results
 
 #### MIT-BIH Arrhythmia Database (360 Hz)
-![MIT-BIH Record 101](ECG-Denoising-Visualizations/Clean_Visualizations/MIT_BIH_Results/MIT-BIH_101_clean.png)
+![MIT-BIH Record 101](ECG-Denoising-Visualizations/Results/MIT_BIH_Results/MIT-BIH_101.png)
 *Figure 3: MIT-BIH Record 101 - Clinical arrhythmia database achieving 50.20 dB SNR with perfect morphology preservation*
 
 #### PTB-XL Clinical Dataset (500 Hz)  
-![PTB-XL Patient](ECG-Denoising-Visualizations/Clean_Visualizations/PTB_XL_Results/PTB-XL_Patient_1_clean.png)
+![PTB-XL Patient](ECG-Denoising-Visualizations/Results/PTB_XL_Results/PTB-XL_Patient_1.png)
 *Figure 4: PTB-XL Clinical Patient - Real patient data (Age 76, Male) with 50.13 dB SNR performance*
 
 #### INCART Annotated Database (257 Hz)
-![INCART Record](ECG-Denoising-Visualizations/Clean_Visualizations/INCART_Results/INCART_I01_clean.png)
+![INCART Record](ECG-Denoising-Visualizations/Results/INCART_Results/INCART_I01.png)
 *Figure 5: INCART Record I01 - Annotated rhythm analysis achieving 50.19 dB SNR*
 
 ### Additional Dataset Examples
 
 #### MIT-BIH Record 102
-![MIT-BIH Record 102](ECG-Denoising-Visualizations/Clean_Visualizations/MIT_BIH_Results/MIT-BIH_102_clean.png)
+![MIT-BIH Record 102](ECG-Denoising-Visualizations/Results/MIT_BIH_Results/MIT-BIH_102.png)
 *Figure 6: MIT-BIH Record 102 - Demonstrating consistent 50.22 dB SNR performance across different arrhythmia patterns*
 
 #### PTB-XL Clinical Diversity
-![PTB-XL Patient 2](ECG-Denoising-Visualizations/Clean_Visualizations/PTB_XL_Results/PTB-XL_Patient_2_clean.png)
+![PTB-XL Patient 2](ECG-Denoising-Visualizations/Results/PTB_XL_Results/PTB-XL_Patient_2.png)
 *Figure 7: PTB-XL Patient 2 (Age 71, Female) - Showing algorithm adaptability across patient demographics*
 
 #### INCART Database Validation
-![INCART Record I02](ECG-Denoising-Visualizations/Clean_Visualizations/INCART_Results/INCART_I02_clean.png)
+![INCART Record I02](ECG-Denoising-Visualizations/Results/INCART_Results/INCART_I02.png)
 *Figure 8: INCART Record I02 - Consistent 50.19 dB performance across different sampling rates (257 Hz)*
 
 ## 🏆 Research Achievements
@@ -99,8 +99,8 @@ A comprehensive validation framework for adaptive Variational Mode Decomposition
 The repository includes a comprehensive visualization system that creates clean, professional ECG denoising images:
 
 ```bash
-# Generate clean visualizations without overlapping text
-python ECG-Denoising-Visualizations/clean_ecg_visualizer.py
+# Generate visualizations 
+python ECG-Denoising-Visualizations/ecg_visualizer.py
 ```
 
 **Features:**
@@ -113,11 +113,11 @@ python ECG-Denoising-Visualizations/clean_ecg_visualizer.py
 
 **Output Structure:**
 ```
-ECG-Denoising-Visualizations/Clean_Visualizations/
+ECG-Denoising-Visualizations/Results/
 ├── MIT_BIH_Results/           # MIT-BIH visualizations
 ├── PTB_XL_Results/            # PTB-XL visualizations  
 ├── INCART_Results/            # INCART visualizations
-└── performance_summary_clean.png  # Overall analysis
+└── performance_summary.png    # Overall analysis
 ```
 
 ## 🚀 Quick Start
